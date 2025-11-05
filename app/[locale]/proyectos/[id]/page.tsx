@@ -39,9 +39,13 @@ type ProjectContext = {
 };
 
 type Task = {
-  id?: number;
-  descripcion: string;
+  id?: number | string;
+  descripcion?: string;
+  text?: string;
+  title?: string;
+  description?: string;
   estado?: string;
+  completed?: boolean;
 };
 
 type Plan = {
@@ -50,6 +54,8 @@ type Plan = {
   projectContext: ProjectContext;
   finalImageUrl: string | null;
   timestamp: string;
+  calendarPositions?: Record<string, { dayIndex: number; startHour: number }>;
+  calendarOnlyTasks?: Array<{ id: string; title: string; subtitle?: string }>;
 };
 
 export default function ProjectPage({
@@ -587,29 +593,135 @@ export default function ProjectPage({
           }));
           setCalendarEvents(events);
         }
-      } else {
-        // Cargar desde localStorage para proyectos locales
-        const calendarKey = `project-${id}-calendar`;
-        const storedEvents = safeLocalGet(calendarKey);
-        if (storedEvents) {
-          const events = JSON.parse(storedEvents);
-          setCalendarEvents(events);
+      } else if (plan) {
+        // Cargar desde el plan guardado para proyectos locales
+        const colors = [
+          "rgba(59, 130, 246, 0.9)",
+          "rgba(16, 185, 129, 0.9)",
+          "rgba(245, 158, 11, 0.9)",
+          "rgba(147, 51, 234, 0.9)",
+          "rgba(239, 68, 68, 0.9)",
+          "rgba(236, 72, 153, 0.9)"
+        ];
+
+        const events: WeeklyGlobalEvent[] = [];
+
+        // Convertir tareas principales a eventos del calendario con sus posiciones
+        if (plan.tasks) {
+          plan.tasks.forEach((task, index) => {
+            // Obtener el ID de la tarea
+            let taskId: string;
+            if (typeof task === 'object' && task.id) {
+              // Si la tarea tiene un ID, usarlo directamente (puede ser string o number de Supabase)
+              taskId = typeof task.id === 'number' ? `supabase-task-${task.id}` : task.id;
+            } else {
+              taskId = `task-${index}`;
+            }
+
+            // Obtener la posición guardada o usar valores por defecto (sin programar)
+            const position = plan.calendarPositions?.[taskId] || { dayIndex: -1, startHour: 9 };
+
+            // Obtener el título de la tarea
+            const title = typeof task === 'string'
+              ? task
+              : (task.text || task.title || task.descripcion || '');
+
+            events.push({
+              id: taskId,
+              title: title,
+              subtitle: "Tarea del proyecto",
+              dayIndex: position.dayIndex,
+              startHour: position.startHour,
+              color: colors[index % colors.length]
+            });
+          });
         }
+
+        // Agregar tareas del calendario únicamente
+        if (plan.calendarOnlyTasks) {
+          plan.calendarOnlyTasks.forEach((calTask, index) => {
+            const position = plan.calendarPositions?.[calTask.id] || { dayIndex: -1, startHour: 9 };
+            events.push({
+              id: calTask.id,
+              title: calTask.title,
+              subtitle: calTask.subtitle,
+              dayIndex: position.dayIndex,
+              startHour: position.startHour,
+              color: colors[(plan.tasks.length + index) % colors.length]
+            });
+          });
+        }
+
+        setCalendarEvents(events);
       }
     } catch (error) {
       console.error('Error loading calendar events:', error);
     } finally {
       setIsLoadingCalendar(false);
     }
-  }, [isFromSupabase, supabaseProject, id]);
+  }, [isFromSupabase, supabaseProject, id, plan]);
 
   // Guardar eventos del calendario en localStorage para proyectos locales
   const saveCalendarEventsLocal = React.useCallback((events: WeeklyGlobalEvent[]) => {
-    if (!isFromSupabase) {
-      const calendarKey = `project-${id}-calendar`;
-      safeLocalSet(calendarKey, JSON.stringify(events));
+    if (!isFromSupabase && plan) {
+      try {
+        const raw = safeLocalGet("allProjectPlans");
+        const plans: Plan[] = raw ? JSON.parse(raw) : [];
+
+        const n = Number(id);
+        let index = Number.isFinite(n) ? n - 1 : plans.findIndex((p) => p.projectId === id);
+
+        if (!(index >= 0 && index < plans.length)) {
+          index = plans.findIndex((p) => p.projectId === id);
+        }
+
+        if (index >= 0 && index < plans.length) {
+          // Extraer posiciones y tareas del calendario
+          const calendarPositions: Record<string, { dayIndex: number; startHour: number }> = {};
+          const calendarOnlyTasks: Array<{ id: string; title: string; subtitle?: string }> = [];
+
+          events.forEach(event => {
+            calendarPositions[event.id] = {
+              dayIndex: event.dayIndex,
+              startHour: event.startHour
+            };
+
+            // Si el evento no es parte de las tareas principales, agregarlo a calendarOnlyTasks
+            const isMainTask = plans[index].tasks.some((task, taskIndex) => {
+              let taskId: string;
+              if (typeof task === 'object' && task.id) {
+                taskId = typeof task.id === 'number' ? `supabase-task-${task.id}` : task.id;
+              } else {
+                taskId = `task-${taskIndex}`;
+              }
+              return taskId === event.id;
+            });
+
+            if (!isMainTask) {
+              calendarOnlyTasks.push({
+                id: event.id,
+                title: event.title,
+                subtitle: event.subtitle
+              });
+            }
+          });
+
+          // Actualizar el plan con las nuevas posiciones y tareas del calendario
+          plans[index] = {
+            ...plans[index],
+            calendarPositions,
+            calendarOnlyTasks,
+            timestamp: new Date().toISOString()
+          };
+
+          safeLocalSet("allProjectPlans", JSON.stringify(plans));
+          setPlan(plans[index]);
+        }
+      } catch (error) {
+        console.error("Error guardando eventos del calendario:", error);
+      }
     }
-  }, [isFromSupabase, id]);
+  }, [isFromSupabase, id, plan]);
 
   // Cargar eventos cuando se carga el proyecto
   React.useEffect(() => {
@@ -680,8 +792,48 @@ export default function ProjectPage({
         // Recargar eventos en caso de error
         loadCalendarEvents();
       }
-    } else {
-      // Para proyectos locales, guardar en localStorage
+    } else if (plan) {
+      // Para proyectos locales, verificar si es una tarea principal
+      const taskIndex = plan.tasks.findIndex((task, index) => {
+        let taskId: string;
+        if (typeof task === 'object' && task.id) {
+          taskId = typeof task.id === 'number' ? `supabase-task-${task.id}` : task.id;
+        } else {
+          taskId = `task-${index}`;
+        }
+        return taskId === eventId;
+      });
+
+      // Si es una tarea principal, eliminarla también del plan
+      if (taskIndex !== -1) {
+        const raw = safeLocalGet("allProjectPlans");
+        const plans: Plan[] = raw ? JSON.parse(raw) : [];
+
+        const n = Number(id);
+        let planIndex = Number.isFinite(n) ? n - 1 : plans.findIndex((p) => p.projectId === id);
+
+        if (!(planIndex >= 0 && planIndex < plans.length)) {
+          planIndex = plans.findIndex((p) => p.projectId === id);
+        }
+
+        if (planIndex >= 0 && planIndex < plans.length) {
+          // Eliminar la tarea del array de tareas
+          const updatedTasks = [...plans[planIndex].tasks];
+          updatedTasks.splice(taskIndex, 1);
+
+          // Actualizar el plan con las tareas actualizadas
+          plans[planIndex] = {
+            ...plans[planIndex],
+            tasks: updatedTasks,
+            timestamp: new Date().toISOString()
+          };
+
+          safeLocalSet("allProjectPlans", JSON.stringify(plans));
+          setPlan(plans[planIndex]);
+        }
+      }
+
+      // Guardar los eventos actualizados del calendario
       saveCalendarEventsLocal(updatedEvents);
     }
   };
@@ -1414,7 +1566,13 @@ export default function ProjectPage({
                 </div>
               ) : (
                 (editedPlan?.tasks ?? plan?.tasks ?? []).map((task, i) => {
-                  const taskObj = typeof task === 'string' ? { descripcion: task, estado: 'pendiente' } : task;
+                  const taskObj = typeof task === 'string'
+                    ? { descripcion: task, estado: 'pendiente' }
+                    : {
+                        ...task,
+                        descripcion: task.descripcion || task.text || task.title || '',
+                        estado: task.estado || 'pendiente'
+                      };
                   const isDelegated = taskObj.estado === 'delegada';
 
                   return (
@@ -1698,7 +1856,6 @@ export default function ProjectPage({
                 onEventRemove={handleEventRemove}
                 onCellClick={handleCellClick}
                 onAddTask={handleAddCalendarTask}
-                onSuggestTask={handleSuggestCalendarTask}
                 startHour={7}
                 endHour={22}
                 className="flex-1"

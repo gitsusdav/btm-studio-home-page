@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Checkbox } from "@/components/ui/checkbox"
 
-import WeeklyGlobalEvent from "../../../components/calendario_plan";
+import { IntegratedCalendar, CalendarOnlyTask } from "../../../components/calendario_plan";
 import {
   Edit2Icon,
   CheckIcon,
@@ -79,6 +79,10 @@ export default function PlanPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
+  // State for calendar positions and tasks
+  const [calendarPositions, setCalendarPositions] = useState<Record<string, { dayIndex: number; startHour: number }>>({})
+  const [calendarOnlyTasks, setCalendarOnlyTasks] = useState<CalendarOnlyTask[]>([])
+
   const uniqueIdBase = useId()
   const router = useRouter()
   const params = useParams()
@@ -130,15 +134,16 @@ export default function PlanPage() {
   // ✅ useEffect corregido para manejar ambos formatos y búsqueda en Supabase
   useEffect(() => {
     const loadProjectData = async () => {
+      // Limpiar el loading global cuando la página esté lista
+      const clearLoadingWhenReady = () => {
+        // Delay mínimo para mostrar el spinner, luego limpiar cuando esté listo
+        setTimeout(() => {
+          sessionStorage.removeItem("projectLoading")
+          window.dispatchEvent(new Event("projectLoadingChange"))
+        }, 1000) // Reducido a 1 segundo
+      }
+
       try {
-        // Limpiar el loading global cuando la página esté lista
-        const clearLoadingWhenReady = () => {
-          // Delay mínimo para mostrar el spinner, luego limpiar cuando esté listo
-          setTimeout(() => {
-            sessionStorage.removeItem("projectLoading")
-            window.dispatchEvent(new Event("projectLoadingChange"))
-          }, 1000) // Reducido a 1 segundo
-        }
         // Obtener el parámetro dinámico 'id' de la URL
         const urlIdentifier = params.id as string
         
@@ -265,17 +270,19 @@ export default function PlanPage() {
     }
   }
 
-  const handleAddTask = (taskText: string) => {
+  const handleAddTask = (taskText: string, shouldScroll: boolean = true) => {
     if (taskText.trim() === "") return
     const newId = `${uniqueIdBase}-task-${tasks.length}-${Date.now()}`
-    const newTask: Task = { 
-      id: newId, 
-      text: taskText.trim(), 
+    const newTask: Task = {
+      id: newId,
+      text: taskText.trim(),
       title: taskText.trim(),
-      completed: false 
+      completed: false
     }
     setTasks((prevTasks) => [...prevTasks, newTask])
-    justAddedTaskId.current = newId
+    if (shouldScroll) {
+      justAddedTaskId.current = newId
+    }
     return newTask
   }
 
@@ -284,7 +291,7 @@ export default function PlanPage() {
     setNewTaskText("")
   }
 
-  const handleGenerateSingleTask = async () => {
+  const handleGenerateSingleTask = async (shouldScroll: boolean = true) => {
     if (!currentProjectContext) return
     setIsGeneratingTask(true)
     const result = await generateSingleTaskAction(
@@ -293,7 +300,7 @@ export default function PlanPage() {
       tasks.map((t) => t.text || t.title || ''),
     )
     if (result.task) {
-      handleAddTask(result.task)
+      handleAddTask(result.task, shouldScroll)
     } else if (result.error) {
       console.error(result.error)
     }
@@ -336,7 +343,14 @@ export default function PlanPage() {
     setIsSubmitting(true);
     setSubmitError(null);
 
-    const taskList = tasks.map((task) => task.text || task.title || '');
+    // Guardar las tareas con sus IDs para poder sincronizar con el calendario
+    const taskList = tasks.map((task) => ({
+      id: task.id,
+      text: task.text || task.title || '',
+      title: task.title || task.text || '',
+      description: task.description,
+      completed: task.completed
+    }));
     const projectName = currentProjectContext.description;
 
     const newPlan = {
@@ -351,6 +365,8 @@ export default function PlanPage() {
       },
       finalImageUrl: finalImageUrl || null,
       timestamp: new Date().toISOString(),
+      calendarPositions: calendarPositions,
+      calendarOnlyTasks: calendarOnlyTasks,
     };
 
     console.log(newPlan)
@@ -374,6 +390,10 @@ export default function PlanPage() {
     }
 
     console.log("Plan guardado localmente:", newPlan, newID);
+
+    // Pequeño delay para mostrar el estado de carga antes de navegar
+    await new Promise(resolve => setTimeout(resolve, 500));
+
     router.push(`/proyectos/${newID}`);
     setIsSubmitting(false);
   };
@@ -791,7 +811,26 @@ export default function PlanPage() {
           }}
         >
 
-            <WeeklyGlobalEvent />
+            <IntegratedCalendar
+              tasks={tasks}
+              onTaskMove={(taskId: string, dayIndex: number) => {
+                // Update task when moved in calendar
+                console.log(`Task ${taskId} moved to day ${dayIndex}`);
+              }}
+              onTaskRemove={(taskId: string) => {
+                // Remove task when deleted from calendar
+                handleDeleteTask(taskId);
+              }}
+              onSuggestTask={() => handleGenerateSingleTask(false)}
+              onPositionsChange={(positions) => {
+                setCalendarPositions(positions);
+              }}
+              onCalendarTasksChange={(calendarTasks) => {
+                setCalendarOnlyTasks(calendarTasks);
+              }}
+              initialPositions={calendarPositions}
+              initialCalendarTasks={calendarOnlyTasks}
+            />
           </div>
 </section>
 

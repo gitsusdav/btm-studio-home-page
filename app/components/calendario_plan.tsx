@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Plus, Sparkles } from "lucide-react";
+import { Plus, Sparkles, X } from "lucide-react";
 
 export type WeeklyGlobalEvent = {
   id: string;
@@ -242,6 +242,7 @@ export function WeeklyCalendar({
           className="flex-1 grid relative overflow-hidden"
           style={{
             gridTemplateColumns: `repeat(${days}, minmax(0, 1fr))`,
+            minHeight: '200px',
           }}
         >
           {cols.map((d) => (
@@ -259,13 +260,24 @@ export function WeeklyCalendar({
                       key={ev.id}
                       draggable
                       onDragStart={(e) => handleDragStart(e, ev)}
-                      onDoubleClick={() => handleEventDoubleClick(ev.id)}
-                      className="text-sm rounded-md px-3 py-2 shadow-sm cursor-move hover:opacity-80 text-white flex-shrink-0"
+                      className="group relative text-sm rounded-md px-3 py-2 shadow-sm cursor-move hover:opacity-90 text-white flex-shrink-0 transition-all duration-200"
                       style={{ background: ev.color || 'rgba(59, 130, 246, 0.8)' }}
                       title={`${ev.title}${ev.subtitle ? ` - ${ev.subtitle}` : ''}`}
                     >
-                      <div className="font-medium">{ev.title}</div>
+                      <div className="font-medium pr-5">{ev.title}</div>
                       {ev.subtitle && <div className="text-xs opacity-75">{ev.subtitle}</div>}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleEventDoubleClick(ev.id);
+                        }}
+                        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:scale-110 hover:bg-white/20 rounded p-0.5"
+                        title="Eliminar tarea"
+                      >
+                        <X size={14} className="text-white" />
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -284,24 +296,23 @@ export function WeeklyCalendar({
         }}>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-white text-sm font-medium">Tareas sin programar:</h3>
-            <div className="flex gap-3">
-              <button
-                onClick={onAddTask}
-                style={buttonStyle}
-                className="flex items-center gap-2 hover:bg-blue-600/20 transition-colors"
-              >
-                <Plus size={16} />
-                Añadir Tarea
-              </button>
-              <button
-                onClick={onSuggestTask}
-                style={buttonStyle}
-                className="flex items-center gap-2 hover:bg-purple-600/20 transition-colors"
-              >
-                <Sparkles size={16} />
-                Sugerir Tarea
-              </button>
-            </div>
+            {onSuggestTask && (
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onSuggestTask?.();
+                  }}
+                  style={buttonStyle}
+                  className="flex items-center gap-2 hover:bg-purple-600/20 transition-colors"
+                >
+                  <Sparkles size={16} />
+                  Sugerir Tarea
+                </button>
+              </div>
+            )}
           </div>
           
           <div 
@@ -319,13 +330,24 @@ export function WeeklyCalendar({
                   key={ev.id}
                   draggable
                   onDragStart={(e) => handleDragStart(e, ev)}
-                  onDoubleClick={() => handleEventDoubleClick(ev.id)}
-                  className="text-sm rounded-md px-3 py-2 shadow-sm cursor-move hover:opacity-80 text-white inline-block"
+                  className="group relative text-sm rounded-md px-3 py-2 shadow-sm cursor-move hover:opacity-90 text-white inline-block transition-all duration-200"
                   style={{ background: ev.color || 'rgba(59, 130, 246, 0.8)' }}
-                  title="Arrastra para programar o doble click para eliminar"
+                  title="Arrastra para programar"
                 >
-                  <div className="font-medium">{ev.title}</div>
+                  <div className="font-medium pr-5">{ev.title}</div>
                   {ev.subtitle && <div className="text-xs opacity-75">{ev.subtitle}</div>}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleEventDoubleClick(ev.id);
+                    }}
+                    className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:scale-110 hover:bg-white/20 rounded p-0.5"
+                    title="Eliminar tarea"
+                  >
+                    <X size={14} className="text-white" />
+                  </button>
                 </div>
               ))}
               {getUnscheduledEvents().length === 0 && (
@@ -376,13 +398,24 @@ export function WeeklyCalendar({
                           key={t.id}
                           draggable
                           onDragStart={(e) => handleDragStart(e, t)}
-                          onDoubleClick={() => handleEventDoubleClick(t.id)}
-                          className="px-2 py-1 rounded text-xs cursor-move hover:opacity-80 text-white flex-shrink-0"
+                          className="group relative px-2 py-1 rounded text-xs cursor-move hover:opacity-90 text-white flex-shrink-0 transition-all duration-200"
                           style={{ background: t.color || 'rgba(59, 130, 246, 0.8)' }}
-                          title="Arrastra para mover o doble click para remover"
+                          title="Arrastra para mover"
                         >
-                          <div className="font-medium truncate">{t.title}</div>
+                          <div className="font-medium truncate pr-4">{t.title}</div>
                           {t.subtitle && <div className="text-xs opacity-75 truncate">{t.subtitle}</div>}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleEventDoubleClick(t.id);
+                            }}
+                            className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:scale-110 hover:bg-white/20 rounded p-0.5"
+                            title="Eliminar tarea"
+                          >
+                            <X size={12} className="text-white" />
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -403,24 +436,23 @@ export function WeeklyCalendar({
         }}>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-white text-sm font-medium">Tareas sin programar:</h3>
-            <div className="flex gap-2">
-              <button
-                onClick={onAddTask}
-                style={buttonStyle}
-                className="hover:bg-blue-600/20 transition-colors text-xs"
-              >
-                <Plus size={12} />
-                Añadir
-              </button>
-              <button
-                onClick={onSuggestTask}
-                style={buttonStyle}
-                className="hover:bg-purple-600/20 transition-colors text-xs"
-              >
-                <Sparkles size={12} />
-                Sugerir
-              </button>
-            </div>
+            {onSuggestTask && (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onSuggestTask?.();
+                  }}
+                  style={buttonStyle}
+                  className="hover:bg-purple-600/20 transition-colors text-xs"
+                >
+                  <Sparkles size={12} />
+                  Sugerir
+                </button>
+              </div>
+            )}
           </div>
           
           <div 
@@ -438,13 +470,24 @@ export function WeeklyCalendar({
                   key={ev.id}
                   draggable
                   onDragStart={(e) => handleDragStart(e, ev)}
-                  onDoubleClick={() => handleEventDoubleClick(ev.id)}
-                  className="text-xs rounded-md px-2 py-1 shadow-sm cursor-move hover:opacity-80 text-white inline-block"
+                  className="group relative text-xs rounded-md px-2 py-1 shadow-sm cursor-move hover:opacity-90 text-white inline-block transition-all duration-200"
                   style={{ background: ev.color || 'rgba(59, 130, 246, 0.8)' }}
-                  title="Arrastra para programar o doble click para eliminar"
+                  title="Arrastra para programar"
                 >
-                  <div className="font-medium">{ev.title}</div>
+                  <div className="font-medium pr-4">{ev.title}</div>
                   {ev.subtitle && <div className="text-[10px] opacity-75">{ev.subtitle}</div>}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleEventDoubleClick(ev.id);
+                    }}
+                    className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:scale-110 hover:bg-white/20 rounded p-0.5"
+                    title="Eliminar tarea"
+                  >
+                    <X size={10} className="text-white" />
+                  </button>
                 </div>
               ))}
               {getUnscheduledEvents().length === 0 && (
@@ -460,14 +503,221 @@ export function WeeklyCalendar({
   );
 }
 
+// Task interface from plan page
+interface Task {
+  id: string;
+  title?: string;
+  text?: string;
+  description?: string;
+  isManual?: boolean;
+  completed: boolean;
+}
+
+// Props for integrated calendar
+interface IntegratedCalendarProps {
+  tasks?: Task[];
+  onTaskMove?: (taskId: string, dayIndex: number) => void;
+  onTaskRemove?: (taskId: string) => void;
+  onSuggestTask?: () => void;
+  onPositionsChange?: (positions: Record<string, { dayIndex: number; startHour: number }>) => void;
+  onCalendarTasksChange?: (calendarTasks: CalendarOnlyTask[]) => void;
+  initialPositions?: Record<string, { dayIndex: number; startHour: number }>;
+  initialCalendarTasks?: CalendarOnlyTask[];
+}
+
+// Calendar-only task (not in the main task list)
+export interface CalendarOnlyTask {
+  id: string;
+  title: string;
+  subtitle?: string;
+}
+
+// Integrated Calendar Component
+export function IntegratedCalendar({
+  tasks = [],
+  onTaskMove,
+  onTaskRemove,
+  onSuggestTask,
+  onPositionsChange,
+  onCalendarTasksChange,
+  initialPositions = {},
+  initialCalendarTasks = [],
+}: IntegratedCalendarProps) {
+  const colors = [
+    "rgba(59, 130, 246, 0.9)",
+    "rgba(16, 185, 129, 0.9)",
+    "rgba(245, 158, 11, 0.9)",
+    "rgba(147, 51, 234, 0.9)",
+    "rgba(239, 68, 68, 0.9)",
+    "rgba(236, 72, 153, 0.9)"
+  ];
+
+  // Keep track of event positions locally
+  const [eventPositions, setEventPositions] = useState<Record<string, { dayIndex: number; startHour: number }>>(initialPositions);
+  const [newTaskText, setNewTaskText] = useState("");
+  // Calendar-only tasks (not synced with main task list)
+  const [calendarOnlyTasks, setCalendarOnlyTasks] = useState<CalendarOnlyTask[]>(initialCalendarTasks);
+
+  // Convert tasks from main list to calendar events with their positions
+  const taskEvents: WeeklyGlobalEvent[] = tasks.map((task, index) => {
+    const position = eventPositions[task.id] || { dayIndex: -1, startHour: 9 };
+    return {
+      id: task.id,
+      title: task.title || task.text || '',
+      subtitle: task.description,
+      dayIndex: position.dayIndex,
+      startHour: position.startHour,
+      color: colors[index % colors.length]
+    };
+  });
+
+  // Convert calendar-only tasks to events
+  const calendarOnlyEvents: WeeklyGlobalEvent[] = calendarOnlyTasks.map((task, index) => {
+    const position = eventPositions[task.id] || { dayIndex: -1, startHour: 9 };
+    return {
+      id: task.id,
+      title: task.title,
+      subtitle: task.subtitle,
+      dayIndex: position.dayIndex,
+      startHour: position.startHour,
+      color: colors[(tasks.length + index) % colors.length]
+    };
+  });
+
+  // Combine both types of events
+  const events: WeeklyGlobalEvent[] = [...taskEvents, ...calendarOnlyEvents];
+
+  const handleEventMove = (eventId: string, dayIndex: number, hour?: number) => {
+    // Update local position state
+    const newPositions = {
+      ...eventPositions,
+      [eventId]: {
+        dayIndex,
+        startHour: hour ?? eventPositions[eventId]?.startHour ?? 9
+      }
+    };
+    setEventPositions(newPositions);
+
+    // Notify parent of position changes
+    if (onPositionsChange) {
+      onPositionsChange(newPositions);
+    }
+
+    if (onTaskMove) {
+      onTaskMove(eventId, dayIndex);
+    }
+  };
+
+  const handleEventRemove = (eventId: string) => {
+    // Check if it's a calendar-only task
+    const isCalendarOnlyTask = calendarOnlyTasks.some(task => task.id === eventId);
+
+    if (isCalendarOnlyTask) {
+      // Remove from calendar-only tasks
+      setCalendarOnlyTasks(prev => prev.filter(task => task.id !== eventId));
+    } else {
+      // Remove from main task list via callback
+      if (onTaskRemove) {
+        onTaskRemove(eventId);
+      }
+    }
+
+    // Remove from local position state
+    setEventPositions(prev => {
+      const newPositions = { ...prev };
+      delete newPositions[eventId];
+      return newPositions;
+    });
+  };
+
+  const handleAddTaskClick = () => {
+    if (newTaskText.trim()) {
+      const newTask: CalendarOnlyTask = {
+        id: `calendar-task-${Date.now()}`,
+        title: newTaskText.trim()
+      };
+      const updatedTasks = [...calendarOnlyTasks, newTask];
+      setCalendarOnlyTasks(updatedTasks);
+      setNewTaskText("");
+
+      // Notify parent of calendar tasks changes
+      if (onCalendarTasksChange) {
+        onCalendarTasksChange(updatedTasks);
+      }
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleAddTaskClick();
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <WeeklyCalendar
+        events={events}
+        onEventMove={handleEventMove}
+        onEventRemove={handleEventRemove}
+        onCellClick={() => {}}
+        onAddTask={undefined}
+        onSuggestTask={onSuggestTask}
+        startHour={7}
+        endHour={22}
+        className="flex-1"
+      />
+
+      {/* Add Task Input Section */}
+      <div
+        className="p-3 rounded-lg"
+        style={{
+          background: 'rgba(50, 50, 50, 0.6)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          backdropFilter: 'blur(10px)'
+        }}
+      >
+        <div className="flex gap-2 items-center">
+          <input
+            type="text"
+            value={newTaskText}
+            onChange={(e) => setNewTaskText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Escribe una nueva tarea..."
+            className="flex-1 px-3 py-2 rounded-md text-white placeholder-white/60 focus:outline-none focus:ring-1 focus:ring-blue-500/50 text-sm"
+            style={{
+              background: 'rgba(40, 40, 40, 0.6)',
+              border: '1px solid rgba(255, 255, 255, 0.2)'
+            }}
+          />
+
+          <button
+            onClick={handleAddTaskClick}
+            disabled={!newTaskText.trim()}
+            className="flex items-center gap-2 px-4 py-2 rounded-md text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600/30"
+            style={{
+              background: 'rgba(59, 130, 246, 0.2)',
+              border: '1px solid rgba(59, 130, 246, 0.3)',
+            }}
+          >
+            <Plus size={16} />
+            Añadir Tarea
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Example usage component
 export default function CalendarExample() {
   const [events, setEvents] = useState<WeeklyGlobalEvent[]>([
-    { id: "1", title: "Almuerzo", dayIndex: 1, startHour: 12, color: "rgba(245, 158, 11, 0.9)" },
-    { id: "2", title: "Código review", dayIndex: 2, startHour: 14, color: "rgba(147, 51, 234, 0.9)" },
-    { id: "3", title: "Cita médica", dayIndex: 4, startHour: 15, color: "rgba(236, 72, 153, 0.9)" },
-    { id: "4", title: "Presentación", subtitle: "Cliente A", dayIndex: -1, startHour: 10, color: "rgba(16, 185, 129, 0.9)" },
-    { id: "5", title: "Planning", subtitle: "Sprint 24", dayIndex: -1, startHour: 11, color: "rgba(239, 68, 68, 0.9)" },
+    { id: "1", title: "Revisar emails", subtitle: "Inbox", dayIndex: -1, startHour: 9, color: "rgba(16, 185, 129, 0.9)" },
+    { id: "2", title: "Ejercicio", subtitle: "30 min", dayIndex: -1, startHour: 10, color: "rgba(245, 158, 11, 0.9)" },
+    { id: "3", title: "Lectura", subtitle: "Libro técnico", dayIndex: -1, startHour: 11, color: "rgba(147, 51, 234, 0.9)" },
+    { id: "4", title: "Planificar mañana", subtitle: "5 min", dayIndex: -1, startHour: 12, color: "rgba(239, 68, 68, 0.9)" },
+    { id: "5", title: "Llamar cliente", dayIndex: -1, startHour: 13, color: "rgba(59, 130, 246, 0.9)" },
+    { id: "6", title: "Backup datos", subtitle: "Servidor", dayIndex: -1, startHour: 14, color: "rgba(236, 72, 153, 0.9)" },
   ]);
   
   const [newTaskTitle, setNewTaskTitle] = useState("");
