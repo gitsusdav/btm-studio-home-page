@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Plus, Sparkles, X } from "lucide-react";
+import { Plus, Sparkles, X, ChevronDown, ChevronUp } from "lucide-react";
 
 export type WeeklyGlobalEvent = {
   id: string;
@@ -117,6 +117,49 @@ function isDateInWeek(date: Date, weekStart: Date, days: number): number {
     return dayDiff;
   }
   return -1;
+}
+
+/* ===== Componente de texto expandible ===== */
+interface ExpandableTextProps {
+  text: string;
+  maxLength?: number;
+  className?: string;
+  expandedClassName?: string;
+}
+
+function ExpandableText({ text, maxLength = 50, className = "", expandedClassName = "" }: ExpandableTextProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const needsTruncate = text.length > maxLength;
+
+  const displayText = isExpanded || !needsTruncate
+    ? text
+    : text.slice(0, maxLength) + "...";
+
+  if (!needsTruncate) {
+    return <div className={`${className} break-words overflow-hidden`}>{text}</div>;
+  }
+
+  return (
+    <div className={`${className} ${isExpanded ? expandedClassName : ''} flex items-start gap-1`}>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsExpanded(!isExpanded);
+        }}
+        className="inline-flex items-center text-white/80 hover:text-white transition-colors flex-shrink-0 mt-0.5"
+        title={isExpanded ? "Ver menos" : "Ver más"}
+      >
+        {isExpanded ? (
+          <ChevronUp size={12} className="inline" />
+        ) : (
+          <ChevronDown size={12} className="inline" />
+        )}
+      </button>
+      <span className="flex-1 break-words overflow-hidden">{displayText}</span>
+    </div>
+  );
 }
 
 export function WeeklyCalendar({
@@ -264,8 +307,18 @@ export function WeeklyCalendar({
                       style={{ background: ev.color || 'rgba(59, 130, 246, 0.8)' }}
                       title={`${ev.title}${ev.subtitle ? ` - ${ev.subtitle}` : ''}`}
                     >
-                      <div className="font-medium pr-5">{ev.title}</div>
-                      {ev.subtitle && <div className="text-xs opacity-75">{ev.subtitle}</div>}
+                      <ExpandableText
+                        text={ev.title}
+                        maxLength={60}
+                        className="font-medium pr-5"
+                      />
+                      {ev.subtitle && (
+                        <ExpandableText
+                          text={ev.subtitle}
+                          maxLength={40}
+                          className="text-xs opacity-75 mt-1"
+                        />
+                      )}
                       <button
                         type="button"
                         onClick={(e) => {
@@ -334,8 +387,18 @@ export function WeeklyCalendar({
                   style={{ background: ev.color || 'rgba(59, 130, 246, 0.8)' }}
                   title="Arrastra para programar"
                 >
-                  <div className="font-medium pr-5">{ev.title}</div>
-                  {ev.subtitle && <div className="text-xs opacity-75">{ev.subtitle}</div>}
+                  <ExpandableText
+                    text={ev.title}
+                    maxLength={60}
+                    className="font-medium pr-5"
+                  />
+                  {ev.subtitle && (
+                    <ExpandableText
+                      text={ev.subtitle}
+                      maxLength={40}
+                      className="text-xs opacity-75 mt-1"
+                    />
+                  )}
                   <button
                     type="button"
                     onClick={(e) => {
@@ -402,8 +465,18 @@ export function WeeklyCalendar({
                           style={{ background: t.color || 'rgba(59, 130, 246, 0.8)' }}
                           title="Arrastra para mover"
                         >
-                          <div className="font-medium truncate pr-4">{t.title}</div>
-                          {t.subtitle && <div className="text-xs opacity-75 truncate">{t.subtitle}</div>}
+                          <ExpandableText
+                            text={t.title}
+                            maxLength={40}
+                            className="font-medium pr-4 text-xs"
+                          />
+                          {t.subtitle && (
+                            <ExpandableText
+                              text={t.subtitle}
+                              maxLength={30}
+                              className="text-xs opacity-75 mt-0.5"
+                            />
+                          )}
                           <button
                             type="button"
                             onClick={(e) => {
@@ -474,8 +547,18 @@ export function WeeklyCalendar({
                   style={{ background: ev.color || 'rgba(59, 130, 246, 0.8)' }}
                   title="Arrastra para programar"
                 >
-                  <div className="font-medium pr-4">{ev.title}</div>
-                  {ev.subtitle && <div className="text-[10px] opacity-75">{ev.subtitle}</div>}
+                  <ExpandableText
+                    text={ev.title}
+                    maxLength={35}
+                    className="font-medium pr-4 text-xs"
+                  />
+                  {ev.subtitle && (
+                    <ExpandableText
+                      text={ev.subtitle}
+                      maxLength={25}
+                      className="text-[10px] opacity-75 mt-0.5"
+                    />
+                  )}
                   <button
                     type="button"
                     onClick={(e) => {
