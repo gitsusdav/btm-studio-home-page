@@ -2,13 +2,14 @@ import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-function supabase() {
-  return createRouteHandlerClient({ cookies });
+async function supabase() {
+  const cookieStore = await cookies();
+  return createRouteHandlerClient({ cookies: () => cookieStore });
 }
 
 export async function POST(req: Request) {
   try {
-    const supabaseClient = supabase();
+    const supabaseClient = await supabase();
 
     // Obtener sesión y usuario actual
     const {
@@ -97,11 +98,22 @@ export async function POST(req: Request) {
       );
     }
 
-    const tasksToInsert = tasks.map((taskDesc: string) => ({
-      descripcion: taskDesc,
-      proyecto_id: projectData.id,
-      estado: "pendiente",
-    }));
+    const tasksToInsert = tasks.map((task: any) => {
+      // Extraer el texto de la tarea
+      let descripcion: string;
+      if (typeof task === "string") {
+        descripcion = task;
+      } else {
+        // Si es un objeto, intentar extraer el texto de diferentes propiedades
+        descripcion = task.descripcion || task.text || task.title || JSON.stringify(task);
+      }
+
+      return {
+        descripcion: descripcion,
+        proyecto_id: projectData.id,
+        estado: "pendiente",
+      };
+    });
 
     const { error: tasksError } = await supabaseClient
       .from("tareas")

@@ -581,16 +581,24 @@ export default function ProjectPage({
         const response = await fetch(`/api/proyectos/${supabaseProject.id}/eventos`);
         if (response.ok) {
           const data = await response.json();
-          const events = data.eventos.map((evento: any) => ({
-            id: evento.id.toString(),
-            title: evento.title,
-            subtitle: evento.subtitle,
-            dayIndex: evento.day_index,
-            startHour: evento.start_hour,
-            endHour: evento.end_hour,
-            color: evento.color,
-            time: evento.time
-          }));
+          const events = data.eventos.map((evento: any) => {
+            // Convertir time a startHour si existe (formato "HH:MM")
+            let startHour = 9; // valor por defecto
+            if (evento.time) {
+              const [hours] = evento.time.split(':');
+              startHour = parseInt(hours, 10);
+            }
+
+            return {
+              id: evento.id.toString(),
+              title: evento.title,
+              subtitle: evento.subtitle,
+              dayIndex: evento.day_index,
+              startHour: startHour,
+              color: evento.color,
+              time: evento.time
+            };
+          });
           setCalendarEvents(events);
         }
       } else if (plan) {
@@ -742,27 +750,32 @@ export default function ProjectPage({
     // Actualizar estado local inmediatamente
     const updatedEvents = calendarEvents.map(e => {
       if (e.id === eventId) {
+        const newStartHour = hour ?? e.startHour;
+        // Convertir startHour a formato time "HH:MM"
+        const time = `${newStartHour.toString().padStart(2, '0')}:00`;
         return {
           ...e,
           dayIndex,
-          startHour: hour ?? e.startHour,
+          startHour: newStartHour,
+          time,
         };
       }
       return e;
     });
-    
+
     setCalendarEvents(updatedEvents);
 
     // Si es proyecto de Supabase, actualizar en la base de datos
     if (isFromSupabase && supabaseProject) {
       try {
+        const event = updatedEvents.find(e => e.id === eventId);
         await fetch(`/api/proyectos/${supabaseProject.id}/eventos`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             eventId,
             dayIndex,
-            startHour: hour
+            time: event?.time
           })
         });
       } catch (error) {
@@ -821,10 +834,15 @@ export default function ProjectPage({
           const updatedTasks = [...plans[planIndex].tasks];
           updatedTasks.splice(taskIndex, 1);
 
+          // Normalizar el tipo de tasks
+          const normalizedTasks: string[] | Task[] = updatedTasks.every(item => typeof item === 'string')
+            ? (updatedTasks as string[])
+            : updatedTasks.map(item => typeof item === 'string' ? { descripcion: item } : item) as Task[];
+
           // Actualizar el plan con las tareas actualizadas
           plans[planIndex] = {
             ...plans[planIndex],
-            tasks: updatedTasks,
+            tasks: normalizedTasks,
             timestamp: new Date().toISOString()
           };
 
@@ -859,26 +877,36 @@ export default function ProjectPage({
     // Si es proyecto de Supabase, guardar en la base de datos
     if (isFromSupabase && supabaseProject) {
       try {
+        // Convertir startHour a formato time "HH:MM"
+        const time = `${newEvent.startHour.toString().padStart(2, '0')}:00`;
+        const payload = {
+          title: newEvent.title,
+          subtitle: newEvent.subtitle,
+          dayIndex: newEvent.dayIndex,
+          time: time,
+          color: newEvent.color
+        };
+        console.log('📤 Enviando nuevo evento al API:', payload);
         const response = await fetch(`/api/proyectos/${supabaseProject.id}/eventos`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: newEvent.title,
-            subtitle: newEvent.subtitle,
-            dayIndex: newEvent.dayIndex,
-            startHour: newEvent.startHour,
-            color: newEvent.color
-          })
+          body: JSON.stringify(payload)
         });
+
+        console.log('📥 Respuesta del API:', response.status, response.statusText);
 
         if (response.ok) {
           const data = await response.json();
+          console.log('✅ Evento creado con ID:', data.evento?.id);
           // Actualizar el evento con el ID real de la base de datos
-          setCalendarEvents(prev => prev.map(e => 
-            e.id === newEvent.id 
+          setCalendarEvents(prev => prev.map(e =>
+            e.id === newEvent.id
               ? { ...e, id: data.evento.id.toString() }
               : e
           ));
+        } else {
+          const error = await response.json();
+          console.error('❌ Error del API:', error);
         }
       } catch (error) {
         console.error('Error creating event:', error);
@@ -915,26 +943,36 @@ export default function ProjectPage({
     // Si es proyecto de Supabase, guardar en la base de datos
     if (isFromSupabase && supabaseProject) {
       try {
+        // Convertir startHour a formato time "HH:MM"
+        const time = `${suggestedTask.startHour.toString().padStart(2, '0')}:00`;
+        const payload = {
+          title: suggestedTask.title,
+          subtitle: suggestedTask.subtitle,
+          dayIndex: suggestedTask.dayIndex,
+          time: time,
+          color: suggestedTask.color
+        };
+        console.log('📤 Enviando tarea sugerida al API:', payload);
         const response = await fetch(`/api/proyectos/${supabaseProject.id}/eventos`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: suggestedTask.title,
-            subtitle: suggestedTask.subtitle,
-            dayIndex: suggestedTask.dayIndex,
-            startHour: suggestedTask.startHour,
-            color: suggestedTask.color
-          })
+          body: JSON.stringify(payload)
         });
+
+        console.log('📥 Respuesta del API (sugerida):', response.status, response.statusText);
 
         if (response.ok) {
           const data = await response.json();
+          console.log('✅ Tarea sugerida creada con ID:', data.evento?.id);
           // Actualizar el evento con el ID real de la base de datos
-          setCalendarEvents(prev => prev.map(e => 
-            e.id === suggestedTask.id 
+          setCalendarEvents(prev => prev.map(e =>
+            e.id === suggestedTask.id
               ? { ...e, id: data.evento.id.toString() }
               : e
           ));
+        } else {
+          const error = await response.json();
+          console.error('❌ Error del API (sugerida):', error);
         }
       } catch (error) {
         console.error('Error creating suggested event:', error);
@@ -1619,7 +1657,10 @@ export default function ProjectPage({
                               if (updatedTasks.every(item => typeof item === 'string')) {
                                 updatedPlan = { ...editedPlan, tasks: updatedTasks as string[] };
                               } else {
-                                updatedPlan = { ...editedPlan, tasks: updatedTasks.map(item => typeof item === 'string' ? { descripcion: item } : item) as Task[] };
+                                const normalizedTasks: Task[] = updatedTasks.map(item =>
+                                  typeof item === 'string' ? { descripcion: item } : item
+                                );
+                                updatedPlan = { ...editedPlan, tasks: normalizedTasks };
                               }
 
                               setEditedPlan(updatedPlan);
@@ -1668,7 +1709,10 @@ export default function ProjectPage({
                               if (updatedTasks.every(item => typeof item === 'string')) {
                                 updatedPlan = { ...editedPlan, tasks: updatedTasks as string[] };
                               } else {
-                                updatedPlan = { ...editedPlan, tasks: updatedTasks.map(item => typeof item === 'string' ? { descripcion: item } : item) as Task[] };
+                                const normalizedTasks: Task[] = updatedTasks.map(item =>
+                                  typeof item === 'string' ? { descripcion: item } : item
+                                );
+                                updatedPlan = { ...editedPlan, tasks: normalizedTasks };
                               }
 
                               setEditedPlan(updatedPlan);
@@ -1690,9 +1734,14 @@ export default function ProjectPage({
                             size="sm"
                             className="text-green-300 border-green-500/30 hover:bg-green-500/20 hover:text-white bg-green-500/10"
                             onClick={async () => {
+                              // Asegurar que el título sea un string
+                              const title = typeof task === 'string'
+                                ? task
+                                : task.descripcion || task.text || task.title || 'Tarea sin título';
+
                               const newCalendarEvent: WeeklyGlobalEvent = {
                                 id: `task-${Date.now()}`,
-                                title: taskObj.descripcion,
+                                title: title,
                                 subtitle: "Tarea del proyecto",
                                 dayIndex: -1, // Unscheduled by default
                                 startHour: 9,
@@ -1707,26 +1756,36 @@ export default function ProjectPage({
                               // Si es proyecto de Supabase, guardar en la base de datos
                               if (isFromSupabase && supabaseProject) {
                                 try {
+                                  // Convertir startHour a formato time "HH:MM"
+                                  const time = `${newCalendarEvent.startHour.toString().padStart(2, '0')}:00`;
+                                  const payload = {
+                                    title: newCalendarEvent.title,
+                                    subtitle: newCalendarEvent.subtitle,
+                                    dayIndex: newCalendarEvent.dayIndex,
+                                    time: time,
+                                    color: newCalendarEvent.color
+                                  };
+                                  console.log('📤 Enviando tarea al calendario (desde lista):', payload);
                                   const response = await fetch(`/api/proyectos/${supabaseProject.id}/eventos`, {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                      title: newCalendarEvent.title,
-                                      subtitle: newCalendarEvent.subtitle,
-                                      dayIndex: newCalendarEvent.dayIndex,
-                                      startHour: newCalendarEvent.startHour,
-                                      color: newCalendarEvent.color
-                                    })
+                                    body: JSON.stringify(payload)
                                   });
+
+                                  console.log('📥 Respuesta del API (desde lista):', response.status, response.statusText);
 
                                   if (response.ok) {
                                     const data = await response.json();
+                                    console.log('✅ Tarea añadida al calendario con ID:', data.evento?.id);
                                     // Actualizar el evento con el ID real de la base de datos
-                                    setCalendarEvents(prev => prev.map(e => 
-                                      e.id === newCalendarEvent.id 
+                                    setCalendarEvents(prev => prev.map(e =>
+                                      e.id === newCalendarEvent.id
                                         ? { ...e, id: data.evento.id.toString() }
                                         : e
                                     ));
+                                  } else {
+                                    const error = await response.json();
+                                    console.error('❌ Error del API (desde lista):', error);
                                   }
                                 } catch (error) {
                                   console.error('Error creating calendar event from task:', error);
@@ -1784,9 +1843,12 @@ export default function ProjectPage({
                       if (updatedTasks.every(item => typeof item === 'string')) {
                         updatedPlan = { ...editedPlan, tasks: updatedTasks as string[] };
                       } else {
+                        const normalizedTasks: Task[] = updatedTasks.map(item =>
+                          typeof item === 'string' ? { descripcion: item } : item
+                        );
                         updatedPlan = {
                           ...editedPlan,
-                          tasks: updatedTasks.map(item => typeof item === 'string' ? { descripcion: item } : item) as Task[]
+                          tasks: normalizedTasks
                         };
                       }
                       setEditedPlan(updatedPlan);
@@ -1811,9 +1873,12 @@ export default function ProjectPage({
                       if (updatedTasks.every(item => typeof item === 'string')) {
                         updatedPlan = { ...newEditedPlan, tasks: updatedTasks as string[] };
                       } else {
+                        const normalizedTasks: Task[] = updatedTasks.map(item =>
+                          typeof item === 'string' ? { descripcion: item } : item
+                        );
                         updatedPlan = {
                           ...newEditedPlan,
-                          tasks: updatedTasks.map(item => typeof item === 'string' ? { descripcion: item } : item) as Task[]
+                          tasks: normalizedTasks
                         };
                       }
                       setEditedPlan(updatedPlan);
@@ -1826,9 +1891,12 @@ export default function ProjectPage({
                     if (updatedTasks.every(item => typeof item === 'string')) {
                       updatedPlan = { ...editedPlan, tasks: updatedTasks as string[] };
                     } else {
+                      const normalizedTasks: Task[] = updatedTasks.map(item =>
+                        typeof item === 'string' ? { descripcion: item } : item
+                      );
                       updatedPlan = {
                         ...editedPlan,
-                        tasks: updatedTasks.map(item => typeof item === 'string' ? { descripcion: item } : item) as Task[]
+                        tasks: normalizedTasks
                       };
                     }
                     setEditedPlan(updatedPlan);

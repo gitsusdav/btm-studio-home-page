@@ -3,16 +3,18 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
-function supabase() {
-  return createRouteHandlerClient({ cookies });
+async function supabase() {
+  const cookieStore = await cookies();
+  return createRouteHandlerClient({ cookies: () => cookieStore });
 }
 
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const projectId = params.id;
+    const { id: projectId } = await params;
+    const supabaseClient = await supabase();
 
     // 1. Obtener el estado actual del proyecto
-    const { data: project, error: fetchError } = await supabase()
+    const { data: project, error: fetchError } = await supabaseClient
       .from('proyectos')
       .select('publico')
       .eq('id', projectId)
@@ -24,7 +26,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
 
     // 2. Cambiar el estado de publico a su opuesto
     const newStatus = !project.publico;
-    const { error: updateError } = await supabase()
+    const { error: updateError } = await supabaseClient
       .from('proyectos')
       .update({ publico: newStatus })
       .eq('id', projectId);

@@ -2,13 +2,14 @@ import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-function supabase() {
-  return createRouteHandlerClient({ cookies });
+async function supabase() {
+  const cookieStore = await cookies();
+  return createRouteHandlerClient({ cookies: () => cookieStore });
 }
 
 export async function POST(req: Request) {
   try {
-    const supabaseClient = supabase();
+    const supabaseClient = await supabase();
 
     // Obtener sesión y usuario actual
     const {
@@ -129,8 +130,10 @@ export async function POST(req: Request) {
             estado: "pendiente",
           };
         } else {
+          // Extraer el texto de la tarea de diferentes posibles propiedades
+          const descripcion = task.descripcion || task.text || task.title || JSON.stringify(task);
           return {
-            descripcion: task.descripcion,
+            descripcion: descripcion,
             proyecto_id: projectId,
             estado: task.estado || "pendiente",
           };

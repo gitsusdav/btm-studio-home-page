@@ -2,15 +2,16 @@ import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-function supabase() {
-  return createRouteHandlerClient({ cookies });
+async function supabase() {
+  const cookieStore = await cookies();
+  return createRouteHandlerClient({ cookies: () => cookieStore });
 }
 
 export async function POST(req: Request) {
   console.log("🔍 POST /api/upload-avatar - Subiendo avatar");
-  
+
   try {
-    const supabaseClient = supabase();
+    const supabaseClient = await supabase();
 
     // 1) Verificar sesión
     const {

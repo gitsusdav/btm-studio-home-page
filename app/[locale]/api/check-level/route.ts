@@ -3,8 +3,9 @@ import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-function supabase() {
-  return createRouteHandlerClient({ cookies });
+async function supabase() {
+  const cookieStore = await cookies();
+  return createRouteHandlerClient({ cookies: () => cookieStore });
 }
 
 const TOTAL_TIME_BASE = process.env.TOTAL_TIME_BASE || "http://localhost:3000";
@@ -18,7 +19,7 @@ export async function OPTIONS() {
 
 export async function POST(req: Request) {
   try {
-    const supabaseClient = supabase();
+    const supabaseClient = await supabase();
 
     // 1) Sesión
     const {
